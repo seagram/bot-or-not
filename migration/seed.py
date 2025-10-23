@@ -1,6 +1,8 @@
 import msgspec
+import os
 from pathlib import Path
 from sqlmodel import create_engine, SQLModel, Session
+from dotenv import load_dotenv
 from schemas import DetectorDataset as DetectorDatasetSchema, ResultDataset as ResultDatasetSchema
 from models import DetectorDataset, ResultDataset, Post, User, UserResult, MetadataTopic, Keyword, Detector, DatasetPostLink, ResultDatasetPostLink, ResultDatasetUserLink
 
@@ -147,8 +149,11 @@ def convert_result_dataset_to_models(schema_dataset: ResultDatasetSchema, sessio
     session.commit()
 
 def main():
-    db_path = Path(__file__).parent / "bot_or_not.db"
-    engine = create_engine(f"sqlite:///{db_path}")
+    load_dotenv()
+    db_url = os.getenv("DB_URL")
+    if not db_url:
+        raise ValueError("DB_URL environment variable is not set")
+    engine = create_engine(db_url)
     SQLModel.metadata.create_all(engine)
     data_dir = Path(__file__).parent.parent / "data"
     detector_files = sorted(data_dir.glob("*detector*.json"))

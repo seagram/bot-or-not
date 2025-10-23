@@ -60,24 +60,28 @@ main tables
 
 class Post(SQLModel, table=True):
     __tablename__ = "post"
-    id: str | None = Field(default=None, primary_key=True)
+    # client-supplied fields
     author_id: str = Field(foreign_key="user.id", index=True)
     text: str
     created_at: datetime = Field(index=True)
+    # server-generated fields
+    id: str | None = Field(default=None, primary_key=True)
     lang: str
     author: Optional["User"] = Relationship(back_populates="posts")
 
 class User(SQLModel, table=True):
     __tablename__ = "user"
-    id: str | None = Field(default=None, primary_key=True)
+    # client-supplied fields
     username: str
     name: str
     description: str
     location: Optional[str]
-    tweet_count: int
-    z_score: float
-    posts: List["Post"] = Relationship(back_populates="author")
-    users: List["UserResult"] = Relationship(back_populates="user")
+    # server-generated fields
+    id: str | None = Field(default=None, primary_key=True)
+    tweet_count: int | None 
+    z_score: float | None 
+    posts: List["Post"] = Relationship(back_populates="author") | None
+    users: List["UserResult"] = Relationship(back_populates="user") | None
 
 class UserResult(SQLModel, table=True):
     __tablename__ = "user_result"
