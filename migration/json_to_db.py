@@ -40,8 +40,35 @@ class DetectorDataset(msgspec.Struct):
     metadata: Metadata
     posts: List[Post]
 
+class ResultUser(msgspec.Struct):
+    is_bot: bool
+    bot_team_id: int
+    bot_team_name: str
+    user_id: str
+
+class Detector(msgspec.Struct):
+    teamName: str
+    isBot: bool
+    confidence: int
+
+class ResultDataset(msgspec.Struct):
+    id: int
+    posts: List[Post]
+    user_id: str
+    tweet_count: int
+    z_score: float
+    username: str
+    name: str
+    description: str
+    location: Optional[str]
+    detectors: List[Detector]
+
 def main():
     with open("../data/detector_dataset_1.json", "r") as f:
+        data = msgspec.json.decode(f.read())
+    pprint(data)
+
+    with open("../data/results_dataset_1.json", "r") as f:
         data = msgspec.json.decode(f.read())
     pprint(data)
 
