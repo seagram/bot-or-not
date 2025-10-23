@@ -12,3 +12,6 @@ uv.lock
 *.md
 !README.md
 *.json
+terraform.tfvars
+.lambda_package/
+terraform/lambda_function.zip

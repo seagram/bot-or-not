@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from src.models.models import Detector, User
 from src.database import engine
+from src.auth import verify_api_key
 
 class DetectorCreate(BaseModel):
     user_id: str
@@ -20,7 +21,10 @@ class DetectorGet(BaseModel):
 router = APIRouter(prefix="/detector", tags=["detectors"])
 
 @router.get("/", response_model=DetectorGet)
-async def get_detector(id: int):
+async def get_detector(
+    id: int,
+    api_key: str = Depends(verify_api_key)
+):
     with Session(engine) as session:
         detector = session.exec(select(Detector).where(Detector.id == id)).first()
 
@@ -36,7 +40,10 @@ async def get_detector(id: int):
         )
 
 @router.post("/")
-async def create_detector(detector_data: DetectorCreate):
+async def create_detector(
+    detector_data: DetectorCreate,
+    api_key: str = Depends(verify_api_key)
+):
     with Session(engine) as session:
         user = session.exec(
             select(User).where(User.id == detector_data.user_id)

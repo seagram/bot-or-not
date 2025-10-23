@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from models.models import User
-from database import engine
+from src.models.models import User
+from src.database import engine
+from src.auth import verify_api_key
 
 class UserCreate(BaseModel):
     '''
@@ -30,7 +31,11 @@ class UserGet(BaseModel):
 router = APIRouter(prefix="/user", tags=["users"])
 
 @router.get("/", response_model=UserGet)
-async def get_user(id: Optional[str] = None, username: Optional[str] = None) -> UserGet:
+async def get_user(
+    id: Optional[str] = None,
+    username: Optional[str] = None,
+    api_key: str = Depends(verify_api_key)
+) -> UserGet:
     if not id and not username:
         raise HTTPException(status_code=400, detail="Must provide either id or username")
 
@@ -46,7 +51,10 @@ async def get_user(id: Optional[str] = None, username: Optional[str] = None) -> 
         return user
 
 @router.post("/")
-async def create_user(user_data: UserCreate) -> UserGet:
+async def create_user(
+    user_data: UserCreate,
+    api_key: str = Depends(verify_api_key)
+) -> UserGet:
     with Session(engine) as session:
         existing_user = session.exec(
             select(User).where(User.username == user_data.username)

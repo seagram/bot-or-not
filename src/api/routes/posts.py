@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
 from sqlmodel import Session, select
-from models.models import User, Post
-from database import engine
+from src.models.models import User, Post
+from src.database import engine
+from src.auth import verify_api_key
 
 class PostCreate(BaseModel):
     author_id: str
@@ -20,7 +21,10 @@ class PostGet(BaseModel):
 router = APIRouter(prefix="/post", tags=["posts"])
 
 @router.get("/", response_model=PostGet)
-async def get_post(id: str):
+async def get_post(
+    id: str,
+    api_key: str = Depends(verify_api_key)
+):
     with Session(engine) as session:
         post = session.exec(select(Post).where(Post.id == id)).first()
 
@@ -36,7 +40,10 @@ async def get_post(id: str):
         )
 
 @router.post("/")
-async def create_post(post_data: PostCreate):
+async def create_post(
+    post_data: PostCreate,
+    api_key: str = Depends(verify_api_key)
+):
     with Session(engine) as session:
         author = session.exec(
             select(User).where(User.id == post_data.author_id)
