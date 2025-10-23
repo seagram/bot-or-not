@@ -1,10 +1,13 @@
 import msgspec
 from datetime import datetime
-from typing import List, Optional
-from pprint import pprint
+from typing import List, Optional, Union
 
 '''
-msgspec classes for converting JSON to dataclasses
+msgspec classes for converting JSON to type-safe python classes
+'''
+
+'''
+clases for detector datasets:
 '''
 
 class MetadataTopic(msgspec.Struct):
@@ -13,7 +16,7 @@ class MetadataTopic(msgspec.Struct):
 
 class Metadata(msgspec.Struct):
     total_amount_users: int
-    total_amount_post: int
+    total_amount_posts: int
     topics: List[MetadataTopic]
     users_average_amount_posts: float
     users_average_z_score: float
@@ -40,20 +43,19 @@ class DetectorDataset(msgspec.Struct):
     metadata: Metadata
     posts: List[Post]
 
-class ResultUser(msgspec.Struct):
-    is_bot: bool
-    bot_team_id: int
-    bot_team_name: str
-    user_id: str
+'''
+classes for result datasets:
+'''
 
 class Detector(msgspec.Struct):
     teamName: str
     isBot: bool
     confidence: int
 
-class ResultDataset(msgspec.Struct):
-    id: int
-    posts: List[Post]
+class ResultUser(msgspec.Struct):
+    is_bot: bool
+    bot_team_id: Union[int, str]
+    bot_team_name: str
     user_id: str
     tweet_count: int
     z_score: float
@@ -63,14 +65,7 @@ class ResultDataset(msgspec.Struct):
     location: Optional[str]
     detectors: List[Detector]
 
-def main():
-    with open("../data/detector_dataset_1.json", "r") as f:
-        data = msgspec.json.decode(f.read())
-    pprint(data)
-
-    with open("../data/results_dataset_1.json", "r") as f:
-        data = msgspec.json.decode(f.read())
-    pprint(data)
-
-if __name__ == "__main__":
-    main()
+class ResultDataset(msgspec.Struct):
+    id: int
+    posts: List[Post]
+    users: List[ResultUser]
