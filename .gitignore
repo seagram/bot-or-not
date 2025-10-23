@@ -10,3 +10,4 @@ uv.lock
 *.sqlite3
 *.md
 !README.md
+*.json
