@@ -1,180 +1,119 @@
-import msgspec
-import os
 import sys
 from pathlib import Path
-from sqlmodel import create_engine, SQLModel, Session
-from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from schemas.schemas import DetectorDataset as DetectorDatasetSchema, ResultDataset as ResultDatasetSchema
-from models.models import DetectorDataset, ResultDataset, Post, User, UserResult, MetadataTopic, Keyword, Detector, DatasetPostLink, ResultDatasetPostLink, ResultDatasetUserLink
+import msgspec
+import os
+from sqlmodel import create_engine, SQLModel, Session, delete
+from dotenv import load_dotenv
+from schemas.schemas import ResultDataset as ResultDatasetSchema
+from models.models import Post, User, Detector
 
-'''
-Takes raw json data, converts it into type-safe SQL models and seeds the turso database
-'''
+result_decoder = msgspec.json.Decoder(ResultDatasetSchema)
 
-def load_dataset(file_path: str) -> DetectorDatasetSchema | ResultDatasetSchema:
-    filename = Path(file_path).name
+def load_dataset(file_path: str):
     with open(file_path, "r") as f:
         content = f.read()
-        if "detector" in filename:
-            return msgspec.json.decode(content, type=DetectorDatasetSchema)
-        elif "results" in filename:
-            return msgspec.json.decode(content, type=ResultDatasetSchema)
-        else:
-            raise ValueError(f"Unknown dataset type for {filename}")
+        return result_decoder.decode(content)
 
-def convert_detector_dataset_to_models(schema_dataset: DetectorDatasetSchema, session: Session):
-    detector_dataset = DetectorDataset(
-        id=schema_dataset.id,
-        lang=schema_dataset.lang
-    )
-    session.add(detector_dataset)
-    session.flush()
+def convert_result_dataset_to_models(schema_dataset: ResultDatasetSchema, session: Session, batch_size: int = 1000):
+    users_to_add = []
+    detectors_to_add = []
 
-    for topic_schema in schema_dataset.metadata.topics:
-        topic = MetadataTopic(
-            dataset_id=detector_dataset.id,
-            topic=topic_schema.topic
-        )
-        session.add(topic)
-        session.flush()
-
-        for keyword_str in topic_schema.keywords:
-            keyword = Keyword(
-                topic_id=topic.id,
-                keyword=keyword_str
-            )
-            session.add(keyword)
-
-    user_ids = set()
-    for post_schema in schema_dataset.posts:
-        if post_schema.author_id not in user_ids:
-            user = session.get(User, post_schema.author_id)
-            if not user:
-                user = User(
-                    id=post_schema.author_id,
-                    tweet_count=0,
-                    z_score=0.0,
-                    username="",
-                    name="",
-                    description=""
-                )
-                session.add(user)
-            user_ids.add(post_schema.author_id)
-
-        post = session.get(Post, post_schema.id)
-        if not post:
-            post = Post(
-                id=post_schema.id,
-                author_id=post_schema.author_id,
-                text=post_schema.text,
-                created_at=post_schema.created_at,
-                lang=post_schema.lang
-            )
-            session.add(post)
-
-        link = DatasetPostLink(
-            dataset_id=detector_dataset.id,
-            post_id=post_schema.id
-        )
-        session.add(link)
-
-    session.commit()
-
-def convert_result_dataset_to_models(schema_dataset: ResultDatasetSchema, session: Session):
-    result_dataset = ResultDataset(id=schema_dataset.id)
-    session.add(result_dataset)
-    session.flush()
-
+    print(f"processing {len(schema_dataset.users)} users...")
     for user_schema in schema_dataset.users:
         bot_team_id = int(user_schema.bot_team_id) if isinstance(user_schema.bot_team_id, str) else user_schema.bot_team_id
 
-        user = session.get(User, user_schema.user_id)
-        if user:
-            user.tweet_count = user_schema.tweet_count
-            user.z_score = user_schema.z_score
-            user.username = user_schema.username
-            user.name = user_schema.name
-            user.description = user_schema.description
-            user.location = user_schema.location
-        else:
-            user = User(
-                id=user_schema.user_id,
-                tweet_count=user_schema.tweet_count,
-                z_score=user_schema.z_score,
-                username=user_schema.username,
-                name=user_schema.name,
-                description=user_schema.description,
-                location=user_schema.location
-            )
-            session.add(user)
-        session.flush()
-
-        analysis_result = UserResult(
-            user_id=user_schema.user_id,
+        user = User(
+            id=user_schema.user_id,
+            tweet_count=user_schema.tweet_count,
+            z_score=user_schema.z_score,
+            username=user_schema.username,
+            name=user_schema.name,
+            description=user_schema.description,
+            location=user_schema.location,
             is_bot=user_schema.is_bot,
             bot_team_id=bot_team_id,
             bot_team_name=user_schema.bot_team_name
         )
-        session.add(analysis_result)
-        session.flush()
+        users_to_add.append(user)
 
         for detector_schema in user_schema.detectors:
             detector = Detector(
-                analysis_id=analysis_result.id,
+                user_id=user_schema.user_id,
                 team_name=detector_schema.teamName,
                 is_bot=detector_schema.isBot,
                 confidence=detector_schema.confidence
             )
-            session.add(detector)
+            detectors_to_add.append(detector)
 
-        link = ResultDatasetUserLink(
-            result_dataset_id=result_dataset.id,
-            user_id=user_schema.user_id
-        )
-        session.add(link)
+    user_batches = [users_to_add[i:i + batch_size] for i in range(0, len(users_to_add), batch_size)]
+    for idx, batch in enumerate(user_batches, 1):
+        session.add_all(batch)
+        session.commit()
+        print(f"committed user batch {idx}/{len(user_batches)} ({len(batch)} users)")
 
+    detector_batches = [detectors_to_add[i:i + batch_size] for i in range(0, len(detectors_to_add), batch_size)]
+    for idx, batch in enumerate(detector_batches, 1):
+        session.add_all(batch)
+        session.commit()
+        print(f"committed detector batch {idx}/{len(detector_batches)} ({len(batch)} detectors)")
+
+    posts_to_add = []
+    print(f"processing {len(schema_dataset.posts)} posts...")
     for post_schema in schema_dataset.posts:
-        post = session.get(Post, post_schema.id)
-        if not post:
-            post = Post(
-                id=post_schema.id,
-                author_id=post_schema.author_id,
-                text=post_schema.text,
-                created_at=post_schema.created_at,
-                lang=post_schema.lang
-            )
-            session.add(post)
-
-        link = ResultDatasetPostLink(
-            result_dataset_id=result_dataset.id,
-            post_id=post_schema.id
+        post = Post(
+            id=post_schema.id,
+            author_id=post_schema.author_id,
+            text=post_schema.text,
+            created_at=post_schema.created_at,
+            lang=post_schema.lang
         )
-        session.add(link)
+        posts_to_add.append(post)
 
-    session.commit()
+    post_batches = [posts_to_add[i:i + batch_size] for i in range(0, len(posts_to_add), batch_size)]
+    for idx, batch in enumerate(post_batches, 1):
+        session.add_all(batch)
+        session.commit()
+        print(f"committed post batch {idx}/{len(post_batches)} ({len(batch)} posts)")
 
 def main():
     load_dotenv()
-    db_url = os.getenv("DB_URL")
+    db_url = os.environ.get("TURSO_DATABASE_URL")
+    db_token = os.environ.get("TURSO_AUTH_TOKEN")
     if not db_url:
-        raise ValueError("DB_URL environment variable is not set")
-    engine = create_engine(db_url)
+        raise ValueError("TURSO_DATABASE_URL environment variable is not set")
+    if not db_token:
+        raise ValueError("TURSO_AUTH_TOKEN environment variable is not set")
+
+    print("connecting to Turso database...")
+    engine = create_engine(
+        f"sqlite+{db_url}?secure=true",
+        connect_args={
+            "auth_token": db_token,
+        },
+        echo=False,
+        pool_pre_ping=True,
+    )
+    print("connected.\n")
+
     SQLModel.metadata.create_all(engine)
     data_dir = Path(__file__).parent.parent / "data"
-    detector_files = sorted(data_dir.glob("*detector*.json"))
-    result_files = sorted(data_dir.glob("*results*.json"))
+    result_file = data_dir / "results_dataset_1.json"
 
     with Session(engine) as session:
-        for detector_file in detector_files:
-            detector_dataset_schema = load_dataset(str(detector_file))
-            convert_detector_dataset_to_models(detector_dataset_schema, session)
+        print("deleting existing database data...")
+        session.exec(delete(Detector))
+        session.exec(delete(Post))
+        session.exec(delete(User))
+        session.commit()
+        print("deleted.\n")
 
-        for result_file in result_files:
-            result_dataset_schema = load_dataset(str(result_file))
-            convert_result_dataset_to_models(result_dataset_schema, session)
+        print(f"processing file: {result_file.name}")
+        result_dataset_schema = load_dataset(str(result_file))
+        convert_result_dataset_to_models(result_dataset_schema, session)
+        print("\ndone.")
 
 if __name__ == "__main__":
     main()

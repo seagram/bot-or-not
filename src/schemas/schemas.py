@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Union
 
 '''
-msgspec classes for converting JSON to type-safe python classes
+msgspec classes for converting dataset JSON to type-safe python classes
 '''
 
 '''

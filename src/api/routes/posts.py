@@ -10,9 +10,16 @@ class PostCreate(BaseModel):
     text: str
     created_at: datetime
 
+class PostGet(BaseModel):
+    id: str
+    author_id: str
+    text: str
+    created_at: datetime
+    lang: str
+
 router = APIRouter(prefix="/post", tags=["posts"])
 
-@router.get("/")
+@router.get("/", response_model=PostGet)
 async def get_post(id: str):
     with Session(engine) as session:
         post = session.exec(select(Post).where(Post.id == id)).first()
@@ -20,7 +27,13 @@ async def get_post(id: str):
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
 
-        return post
+        return PostGet(
+            id=post.id,
+            author_id=post.author_id,
+            text=post.text,
+            created_at=post.created_at,
+            lang=post.lang
+        )
 
 @router.post("/")
 async def create_post(post_data: PostCreate):
