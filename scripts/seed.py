@@ -1,10 +1,18 @@
 import msgspec
 import os
+import sys
 from pathlib import Path
 from sqlmodel import create_engine, SQLModel, Session
 from dotenv import load_dotenv
-from schemas import DetectorDataset as DetectorDatasetSchema, ResultDataset as ResultDatasetSchema
-from models import DetectorDataset, ResultDataset, Post, User, UserResult, MetadataTopic, Keyword, Detector, DatasetPostLink, ResultDatasetPostLink, ResultDatasetUserLink
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from schemas.schemas import DetectorDataset as DetectorDatasetSchema, ResultDataset as ResultDatasetSchema
+from models.models import DetectorDataset, ResultDataset, Post, User, UserResult, MetadataTopic, Keyword, Detector, DatasetPostLink, ResultDatasetPostLink, ResultDatasetUserLink
+
+'''
+Takes raw json data, converts it into type-safe SQL models and seeds the turso database
+'''
 
 def load_dataset(file_path: str) -> DetectorDatasetSchema | ResultDatasetSchema:
     filename = Path(file_path).name
