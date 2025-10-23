@@ -14,4 +14,5 @@ uv.lock
 *.json
 terraform.tfvars
 .lambda_package/
+terraform.tfstate
 terraform/lambda_function.zip
