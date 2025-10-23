@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
 from sqlmodel import Session, select
-from models import User, Post
+from models.models import User, Post
 from database import engine
 
 class PostCreate(BaseModel):

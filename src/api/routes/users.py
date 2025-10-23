@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from src.models.models import User
-from src.database import engine
+from models.models import User
+from database import engine
 
 class UserCreate(BaseModel):
     '''
