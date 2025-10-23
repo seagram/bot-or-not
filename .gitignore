@@ -1,0 +1,12 @@
+__pycache__/
+venv/
+env/
+ENV/
+.venv
+.uv/
+uv.lock
+*.db
+*.sqlite
+*.sqlite3
+*.md
+!README.md
