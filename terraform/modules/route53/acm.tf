@@ -5,14 +5,10 @@ resource "aws_acm_certificate" "api" {
   lifecycle {
     create_before_destroy = true
   }
-
-  tags = {
-    Name        = "${var.app_name}-certificate"
-    Environment = "production"
-  }
 }
 
 resource "aws_route53_record" "cert_validation" {
+  # automatically generate required dns records
   for_each = {
     for dvo in aws_acm_certificate.api.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name

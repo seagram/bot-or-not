@@ -1,10 +1,5 @@
 resource "aws_route53_zone" "main" {
   name = var.domain_name
-
-  tags = {
-    Name        = "${var.app_name}-hosted-zone"
-    Environment = "production"
-  }
 }
 
 resource "aws_route53_record" "api" {

@@ -1,4 +1,5 @@
 resource "aws_apigatewayv2_api" "lambda" {
+  # abstract lambda to an api gateway 
   name          = "${var.app_name}-api"
   protocol_type = "HTTP"
 
@@ -31,6 +32,8 @@ resource "aws_apigatewayv2_stage" "default" {
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+    # cloudwatch resource in terraform doesn't support a headers data block
+    # hardcoding as json is required
     format = jsonencode({
       requestId      = "$context.requestId"
       ip             = "$context.identity.sourceIp"
@@ -45,11 +48,13 @@ resource "aws_apigatewayv2_stage" "default" {
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
+  # keep 7 days worth of logs
   name              = "/aws/apigateway/${var.app_name}"
   retention_in_days = 7
 }
 
 resource "aws_lambda_permission" "api_gateway" {
+  # TODO: change to follow principle of least privledge
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.app.function_name
@@ -72,4 +77,3 @@ resource "aws_apigatewayv2_api_mapping" "api" {
   domain_name = aws_apigatewayv2_domain_name.api.id
   stage       = aws_apigatewayv2_stage.default.id
 }
-
